@@ -28,6 +28,18 @@ destination relay and Blossom server, and move your content there.
 Early. See the [issues](https://github.com/divinevideo/divine-exit/issues) for
 scope, open questions, and acceptance criteria before starting work.
 
+The current web app implements the first archive-export slice against fixture
+responses. It can build an archive containing:
+
+- `events.json` — raw signed events exactly as returned by the source.
+- `manifest.json` — source, pubkey, generated timestamp, counts, pages, and
+  failures.
+- `media.json` — media URLs and hashes discovered from event tags.
+
+Live owner-export validation is gated on production auth wiring and a known test
+account. Run `npm run smoke:live-export-gate` to confirm the public route is
+serving a NIP-98 response before attempting signed validation.
+
 ## What it does
 
 1. Sign in with an existing Divine method — Keycast OAuth, bunker (NIP-46), or
@@ -68,6 +80,15 @@ Deletion is a separate, already-built flow.
 This repo touches no Divine-internal moderation logic and only documented
 protocol surfaces, so it is a reasonable place to contribute from outside the
 core team. Start from an open issue.
+
+Useful commands:
+
+```bash
+npm i
+npm run dev
+npm test
+npm run smoke:live-export-gate
+```
 
 ## License
 
