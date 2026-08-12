@@ -29,6 +29,7 @@ export interface ArchiveFiles {
 }
 
 const URL_TAGS = new Set(["url", "image", "thumb", "thumbnail"]);
+const IMETA_URL_KEYS = new Set(["url", "image", "thumb", "thumbnail", "fallback"]);
 
 function basenameHash(url: string): string | null {
   try {
@@ -41,30 +42,50 @@ function basenameHash(url: string): string | null {
   }
 }
 
-function readImeta(tag: string[]): { url: string | null; sha256: string | null } {
-  let url: string | null = null;
+function siblingHash(tags: string[][]): string | null {
+  for (const tag of tags) {
+    if (tag[0] === "x" && tag[1] && isHex64(tag[1])) {
+      return tag[1].toLowerCase();
+    }
+  }
+
+  return null;
+}
+
+function readImeta(tag: string[]): Array<{ url: string; sha256: string | null }> {
   let sha256: string | null = null;
+  const urls: string[] = [];
 
   for (const value of tag.slice(1)) {
     const [key, ...rest] = value.split(" ");
     const body = rest.join(" ");
 
-    if (key === "url" && body) {
-      url = body;
+    if (IMETA_URL_KEYS.has(key) && body) {
+      urls.push(body);
     }
     if (key === "x" && isHex64(body)) {
       sha256 = body.toLowerCase();
     }
   }
 
-  return { url, sha256 };
+  return urls.map((url) => ({ url, sha256: sha256 ?? basenameHash(url) }));
 }
 
 export function discoverMediaReferences(events: NostrEvent[]): MediaReference[] {
   const references: MediaReference[] = [];
 
   for (const event of events) {
+    if (!event || !Array.isArray(event.tags)) {
+      continue;
+    }
+
+    const eventHash = siblingHash(event.tags);
+
     for (const tag of event.tags) {
+      if (!Array.isArray(tag)) {
+        continue;
+      }
+
       const [name, value] = tag;
       if (!name) {
         continue;
@@ -75,18 +96,17 @@ export function discoverMediaReferences(events: NostrEvent[]): MediaReference[] 
           event_id: event.id,
           tag: name,
           url: value,
-          sha256: tag.find((part) => isHex64(part))?.toLowerCase() ?? basenameHash(value)
+          sha256: tag.find((part) => isHex64(part))?.toLowerCase() ?? eventHash ?? basenameHash(value)
         });
       }
 
       if (name === "imeta") {
-        const imeta = readImeta(tag);
-        if (imeta.url) {
+        for (const imeta of readImeta(tag)) {
           references.push({
             event_id: event.id,
             tag: name,
             url: imeta.url,
-            sha256: imeta.sha256 ?? basenameHash(imeta.url)
+            sha256: imeta.sha256
           });
         }
       }

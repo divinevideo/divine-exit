@@ -58,6 +58,27 @@ describe("archive builder", () => {
     ]);
   });
 
+  it("uses a sibling x tag when the URL does not carry a hash", () => {
+    const hash = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    const references = discoverMediaReferences([
+      makeFixtureEvent({
+        tags: [
+          ["url", "https://cdn.example.com/video.mp4"],
+          ["x", hash]
+        ]
+      })
+    ]);
+
+    expect(references).toEqual([
+      {
+        event_id: "1111111111111111111111111111111111111111111111111111111111111111",
+        tag: "url",
+        url: "https://cdn.example.com/video.mp4",
+        sha256: hash
+      }
+    ]);
+  });
+
   it("serializes the three archive files", () => {
     const archive = buildArchiveFiles({
       events: [makeFixtureEvent()],
