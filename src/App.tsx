@@ -97,8 +97,7 @@ export default function App() {
         </div>
         <h1 id="page-title">Download your Divine archive</h1>
         <p className="intro">
-          Create a portable archive of your events from Divine. This first version uses test responses until the live
-          export endpoint is available.
+          Create a portable archive of your events from Divine. This version still uses test responses.
         </p>
 
         <div className="form-grid">
@@ -157,7 +156,8 @@ export default function App() {
               <strong>{summary.events === 0 ? "No exportable events were found from Divine." : "Archive ready."}</strong>
               <p>
                 {summary.pages} page{summary.pages === 1 ? "" : "s"} read. {summary.events} event
-                {summary.events === 1 ? "" : "s"} and {summary.media} media reference{summary.media === 1 ? "" : "s"} included.
+                {summary.events === 1 ? "" : "s"} and {summary.media} media reference{summary.media === 1 ? "" : "s"} included
+                from Divine. Other relays were not checked.
               </p>
             </div>
           </div>

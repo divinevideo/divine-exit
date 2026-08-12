@@ -11,7 +11,9 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("button", { name: /create archive/i }));
 
     await waitFor(() => expect(screen.getByText("Archive ready.")).toBeInTheDocument());
-    expect(screen.getByText(/1 page read. 1 event and 1 media reference included./)).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 page read. 1 event and 1 media reference included from Divine. Other relays were not checked./)
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /download/i })).toBeEnabled();
   });
 
