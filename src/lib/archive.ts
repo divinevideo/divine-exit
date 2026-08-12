@@ -54,21 +54,24 @@ function siblingHash(tags: string[][]): string | null {
 
 function readImeta(tag: string[]): Array<{ url: string; sha256: string | null }> {
   let sha256: string | null = null;
-  const urls: string[] = [];
+  const urls: Array<{ key: string; url: string }> = [];
 
   for (const value of tag.slice(1)) {
     const [key, ...rest] = value.split(" ");
     const body = rest.join(" ");
 
     if (IMETA_URL_KEYS.has(key) && body) {
-      urls.push(body);
+      urls.push({ key, url: body });
     }
     if (key === "x" && isHex64(body)) {
       sha256 = body.toLowerCase();
     }
   }
 
-  return urls.map((url) => ({ url, sha256: sha256 ?? basenameHash(url) }));
+  return urls.map(({ key, url }) => ({
+    url,
+    sha256: basenameHash(url) ?? (key === "url" ? sha256 : null)
+  }));
 }
 
 export function discoverMediaReferences(events: NostrEvent[]): MediaReference[] {
@@ -96,7 +99,10 @@ export function discoverMediaReferences(events: NostrEvent[]): MediaReference[] 
           event_id: event.id,
           tag: name,
           url: value,
-          sha256: tag.find((part) => isHex64(part))?.toLowerCase() ?? eventHash ?? basenameHash(value)
+          sha256:
+            tag.find((part) => isHex64(part))?.toLowerCase() ??
+            basenameHash(value) ??
+            (name === "url" ? eventHash : null)
         });
       }
 

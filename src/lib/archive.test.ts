@@ -79,6 +79,67 @@ describe("archive builder", () => {
     ]);
   });
 
+  it("does not apply a sibling x hash to thumb or image URLs", () => {
+    const videoHash = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    const thumbHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const references = discoverMediaReferences([
+      makeFixtureEvent({
+        tags: [
+          ["url", "https://cdn.example.com/video.mp4"],
+          ["thumb", `https://media.divine.video/${thumbHash}.jpg`],
+          ["x", videoHash]
+        ]
+      })
+    ]);
+
+    expect(references).toEqual([
+      {
+        event_id: "1111111111111111111111111111111111111111111111111111111111111111",
+        tag: "url",
+        url: "https://cdn.example.com/video.mp4",
+        sha256: videoHash
+      },
+      {
+        event_id: "1111111111111111111111111111111111111111111111111111111111111111",
+        tag: "thumb",
+        url: `https://media.divine.video/${thumbHash}.jpg`,
+        sha256: thumbHash
+      }
+    ]);
+  });
+
+  it("does not apply an imeta x hash to a sibling image URL", () => {
+    const videoHash = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    const imageHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const references = discoverMediaReferences([
+      makeFixtureEvent({
+        tags: [
+          [
+            "imeta",
+            "url https://cdn.example.com/video.mp4",
+            `image https://media.divine.video/${imageHash}.jpg`,
+            `x ${videoHash}`
+          ]
+        ]
+      })
+    ]);
+
+    expect(references).toEqual([
+      {
+        event_id: "1111111111111111111111111111111111111111111111111111111111111111",
+        tag: "imeta",
+        url: "https://cdn.example.com/video.mp4",
+        sha256: videoHash
+      },
+      {
+        event_id: "1111111111111111111111111111111111111111111111111111111111111111",
+        tag: "imeta",
+        url: `https://media.divine.video/${imageHash}.jpg`,
+        sha256: imageHash
+      }
+    ]);
+  });
+
   it("serializes the three archive files", () => {
     const archive = buildArchiveFiles({
       events: [makeFixtureEvent()],
