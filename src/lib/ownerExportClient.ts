@@ -103,6 +103,41 @@ function classifyBadRequest(body: string): OwnerExportError {
   return new OwnerExportError("invalid-pubkey", "The account identifier is not valid.", 400);
 }
 
+const SIG_HEX = /^[0-9a-f]{128}$/i;
+
+function validateEvent(value: unknown): NostrEvent {
+  if (!value || typeof value !== "object") {
+    throw new OwnerExportError("malformed-response", "Divine returned a response this tool could not read.");
+  }
+
+  const event = value as Partial<NostrEvent>;
+
+  if (typeof event.id !== "string" || !isHex64(event.id)) {
+    throw new OwnerExportError("malformed-response", "Divine returned an event identifier this tool could not read.");
+  }
+
+  if (typeof event.pubkey !== "string" || !isHex64(event.pubkey)) {
+    throw new OwnerExportError("malformed-response", "Divine returned an account identifier this tool could not read.");
+  }
+
+  if (typeof event.sig !== "string" || !SIG_HEX.test(event.sig)) {
+    throw new OwnerExportError("malformed-response", "Divine returned an event signature this tool could not read.");
+  }
+
+  if (typeof event.created_at !== "number" || typeof event.kind !== "number" || typeof event.content !== "string") {
+    throw new OwnerExportError("malformed-response", "Divine returned a response this tool could not read.");
+  }
+
+  if (
+    !Array.isArray(event.tags) ||
+    event.tags.some((tag) => !Array.isArray(tag) || tag.some((part) => typeof part !== "string"))
+  ) {
+    throw new OwnerExportError("malformed-response", "Divine returned a response this tool could not read.");
+  }
+
+  return event as NostrEvent;
+}
+
 function validatePage(value: unknown): ExportPage {
   if (!value || typeof value !== "object") {
     throw new OwnerExportError("malformed-response", "Divine returned a response this tool could not read.");
@@ -124,7 +159,7 @@ function validatePage(value: unknown): ExportPage {
   }
 
   return {
-    data: candidate.data as NostrEvent[],
+    data: candidate.data.map(validateEvent),
     pagination: {
       has_more: candidate.pagination.has_more,
       next_cursor: nextCursor ?? null
@@ -132,7 +167,12 @@ function validatePage(value: unknown): ExportPage {
   };
 }
 
-async function fetchPage(url: string, signer: NostrSigner, fetcher: typeof fetch): Promise<ExportPage> {
+async function fetchPage(
+  url: string,
+  signer: NostrSigner,
+  fetcher: typeof fetch,
+  rateLimitRetryCount = 0
+): Promise<ExportPage> {
   const authHeader = await createNip98AuthHeader(signer, url, "GET");
 
   let response: Response;
@@ -162,7 +202,7 @@ async function fetchPage(url: string, signer: NostrSigner, fetcher: typeof fetch
       "rate-limited",
       "Divine asked this export to slow down. Wait a moment and try again.",
       429,
-      retryDelayMs(response, 0)
+      retryDelayMs(response, rateLimitRetryCount)
     );
   }
   if (response.status >= 500) {
@@ -209,7 +249,7 @@ export async function exportOwnerEvents(options: OwnerExportClientOptions): Prom
     const url = buildExportUrl(endpointBase, pubkey, limit, cursor);
 
     try {
-      const page = await fetchPage(url, signer, fetcher);
+      const page = await fetchPage(url, signer, fetcher, rateLimitRetriesForPage);
       pagesFetched += 1;
       events.push(...page.data);
       rateLimitRetriesForPage = 0;

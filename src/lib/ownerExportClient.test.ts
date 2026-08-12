@@ -96,6 +96,58 @@ describe("exportOwnerEvents", () => {
     ).rejects.toMatchObject({ code: "malformed-response" });
   });
 
+  it("backs off exponentially when Retry-After is absent", async () => {
+    const sleeps: number[] = [];
+    let requests = 0;
+
+    await expect(
+      exportOwnerEvents({
+        endpointBase: "https://api.divine.video",
+        pubkey: fixturePubkey,
+        signer: new FixtureSigner(),
+        fetcher: async () => {
+          requests += 1;
+          return new Response(JSON.stringify({ error: "slow down" }), { status: 429 });
+        },
+        sleep: async (ms) => {
+          sleeps.push(ms);
+        },
+        maxRateLimitRetries: 2
+      })
+    ).rejects.toMatchObject({ code: "rate-limited" });
+
+    expect(requests).toBe(3);
+    expect(sleeps).toEqual([1000, 2000]);
+  });
+
+  it("rejects truncated event identifiers", async () => {
+    await expect(
+      exportOwnerEvents({
+        endpointBase: "https://api.divine.video",
+        pubkey: fixturePubkey,
+        signer: new FixtureSigner(),
+        fetcher: async () =>
+          new Response(
+            JSON.stringify({
+              data: [
+                {
+                  id: "1111",
+                  pubkey: fixturePubkey,
+                  created_at: 1,
+                  kind: 1,
+                  tags: [],
+                  content: "",
+                  sig: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                }
+              ],
+              pagination: { next_cursor: null, has_more: false }
+            }),
+            { status: 200 }
+          )
+      })
+    ).rejects.toMatchObject({ code: "malformed-response" });
+  });
+
   it("rejects invalid pubkeys before making a request", async () => {
     await expect(
       exportOwnerEvents({
