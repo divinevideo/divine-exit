@@ -1,18 +1,21 @@
-import { Archive, ArrowClockwise, CheckCircle, DownloadSimple, WarningCircle } from "@phosphor-icons/react";
+import { Archive, ArrowClockwise, CheckCircle, DownloadSimple, SignIn, SignOut, WarningCircle } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
+import { useDivineSession } from "@/auth/useDivineSession";
+import type { DivineSession } from "@/auth/useDivineSession";
 import { buildArchiveFiles, serializeArchiveFiles, type ArchiveFiles } from "@/lib/archive";
 import { exportOwnerEvents, OwnerExportError, type ExportProgress } from "@/lib/ownerExportClient";
 import { createZip } from "@/lib/zip";
-import { fixturePubkey, fixtureScenarioLabels, type FixtureScenario } from "@/fixtures/exportFixtures";
+import { fixtureScenarioLabels, type FixtureScenario } from "@/fixtures/exportFixtures";
 import { createFixtureFetch } from "@/fixtures/fixtureFetch";
-import { FixtureSigner } from "@/fixtures/fixtureSigner";
 
 type RunState = "idle" | "running" | "complete" | "failed";
+type ExportSource = "live" | FixtureScenario;
 
 const endpointBase = "https://api.divine.video";
+const isDevFixturesEnabled = import.meta.env.DEV;
 
-const scenarioOptions = Object.entries(fixtureScenarioLabels) as Array<[FixtureScenario, string]>;
+const fixtureSourceOptions = Object.entries(fixtureScenarioLabels) as Array<[FixtureScenario, string]>;
 
 function errorMessage(error: unknown): string {
   if (error instanceof OwnerExportError) {
@@ -34,9 +37,13 @@ function downloadArchive(files: ArchiveFiles): void {
   URL.revokeObjectURL(url);
 }
 
-export default function App() {
-  const [accountId, setAccountId] = useState(fixturePubkey);
-  const [scenario, setScenario] = useState<FixtureScenario>("one-page");
+interface AppProps {
+  session: DivineSession;
+}
+
+export function AppContent({ session }: AppProps) {
+  const [exportSource, setExportSource] = useState<ExportSource>("one-page");
+  const [pageLimit, setPageLimit] = useState(500);
   const [state, setState] = useState<RunState>("idle");
   const [progress, setProgress] = useState<ExportProgress>({ pagesFetched: 0, eventsFetched: 0, retryCount: 0 });
   const [archiveFiles, setArchiveFiles] = useState<ArchiveFiles | null>(null);
@@ -58,6 +65,12 @@ export default function App() {
   }, [archiveFiles]);
 
   async function runExport() {
+    if (!session.pubkey || !session.signer) {
+      setState("failed");
+      setFailure("Sign in, then restart the export.");
+      return;
+    }
+
     setState("running");
     setFailure(null);
     setArchiveFiles(null);
@@ -66,15 +79,16 @@ export default function App() {
     try {
       const result = await exportOwnerEvents({
         endpointBase,
-        pubkey: accountId.trim(),
-        signer: new FixtureSigner(),
-        fetcher: createFixtureFetch(scenario),
+        pubkey: session.pubkey,
+        signer: session.signer,
+        fetcher: isDevFixturesEnabled && exportSource !== "live" ? createFixtureFetch(exportSource) : undefined,
+        limit: isDevFixturesEnabled ? pageLimit : undefined,
         onProgress: setProgress,
         sleep: async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
       });
       const files = buildArchiveFiles({
         events: result.events,
-        pubkey: accountId.trim(),
+        pubkey: session.pubkey,
         sourceEndpoint: endpointBase,
         pageCount: result.pageCount,
         failures: result.failures
@@ -97,34 +111,57 @@ export default function App() {
         </div>
         <h1 id="page-title">Download your Divine archive</h1>
         <p className="intro">
-          Create a portable archive of your events from Divine. This version still uses test responses.
+          Create a portable archive of your events from Divine.
         </p>
 
-        <div className="form-grid">
-          <label>
-            <span>Account identifier</span>
-            <input
-              value={accountId}
-              onChange={(event) => setAccountId(event.target.value)}
-              spellCheck={false}
-              autoComplete="off"
-            />
-          </label>
+        {session.status === "signed-in" && session.pubkey ? (
+          <div className="account-row">
+            <div>
+              <span>Signed in account</span>
+              <code>{session.pubkey}</code>
+            </div>
+            <button type="button" className="secondary" onClick={session.signOut} disabled={state === "running"}>
+              <SignOut aria-hidden="true" />
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <div className="signed-out">
+            <button type="button" onClick={() => void session.signIn()} disabled={session.status === "checking"}>
+              {session.status === "checking" ? <ArrowClockwise className="spin" aria-hidden="true" /> : <SignIn aria-hidden="true" />}
+              {session.status === "checking" ? "Checking sign-in" : "Sign in with Divine"}
+            </button>
+          </div>
+        )}
 
-          <label>
-            <span>Test response</span>
-            <select value={scenario} onChange={(event) => setScenario(event.target.value as FixtureScenario)}>
-              {scenarioOptions.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        {isDevFixturesEnabled && (
+          <div className="form-grid">
+            <label>
+              <span>Export source</span>
+              <select value={exportSource} onChange={(event) => setExportSource(event.target.value as ExportSource)}>
+                <option value="live">Live endpoint</option>
+                {fixtureSourceOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Page limit</span>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={pageLimit}
+                onChange={(event) => setPageLimit(Math.min(500, Math.max(1, Number(event.target.value) || 1)))}
+              />
+            </label>
+          </div>
+        )}
 
         <div className="actions">
-          <button type="button" onClick={runExport} disabled={state === "running"}>
+          <button type="button" onClick={runExport} disabled={state === "running" || session.status !== "signed-in"}>
             {state === "running" ? <ArrowClockwise className="spin" aria-hidden="true" /> : <Archive aria-hidden="true" />}
             {state === "running" ? "Exporting" : "Create archive"}
           </button>
@@ -172,7 +209,22 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {session.status === "failed" && session.error && (
+          <div className="notice failure" role="alert">
+            <WarningCircle aria-hidden="true" />
+            <div>
+              <strong>Sign-in stopped.</strong>
+              <p>{session.error}</p>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );
+}
+
+export default function App() {
+  const session = useDivineSession();
+  return <AppContent session={session} />;
 }

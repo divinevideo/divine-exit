@@ -65,7 +65,7 @@ h1 {
 
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 220px;
+  grid-template-columns: 220px 140px;
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -92,6 +92,36 @@ select {
 input {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.86rem;
+}
+
+.account-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.account-row span {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 800;
+}
+
+.account-row code {
+  display: block;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+  border: 2px solid #14392f;
+  border-radius: 6px;
+  background: #fffdf7;
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.86rem;
+}
+
+.signed-out {
+  margin-bottom: 20px;
 }
 
 .actions {
@@ -190,6 +220,7 @@ button:disabled {
 }
 
 @media (max-width: 680px) {
+  .account-row,
   .form-grid,
   .progress-strip {
     grid-template-columns: 1fr;

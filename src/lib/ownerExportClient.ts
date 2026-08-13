@@ -73,12 +73,13 @@ function buildExportUrl(endpointBase: string, pubkey: string, limit: number, cur
 function retryDelayMs(response: Response, retryCount: number): number {
   const retryAfter = response.headers.get("retry-after");
   const retryAfterSeconds = retryAfter ? Number(retryAfter) : Number.NaN;
+  const backoffMs = Math.min(1000 * 2 ** retryCount, 8000);
 
   if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0) {
-    return retryAfterSeconds * 1000;
+    return Math.max(retryAfterSeconds * 1000, backoffMs, 1000);
   }
 
-  return Math.min(1000 * 2 ** retryCount, 8000);
+  return Math.max(backoffMs, 1000);
 }
 
 async function readErrorBody(response: Response): Promise<string> {

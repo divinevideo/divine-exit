@@ -46,9 +46,46 @@ describe("exportOwnerEvents", () => {
     });
 
     expect(result.events).toHaveLength(1);
-    expect(sleeps).toEqual([0]);
+    expect(sleeps).toEqual([1000]);
     expect(signer.signedUrls).toHaveLength(2);
     expect(signer.signedUrls[0]).toBe(signer.signedUrls[1]);
+  });
+
+  it("paces repeated 429 responses with zero Retry-After values", async () => {
+    const signer = new FixtureSigner();
+    const sleeps: number[] = [];
+    let requests = 0;
+
+    const result = await exportOwnerEvents({
+      endpointBase: "https://api.divine.video",
+      pubkey: fixturePubkey,
+      signer,
+      fetcher: async () => {
+        requests += 1;
+        if (requests <= 2) {
+          return new Response(JSON.stringify({ error: "slow down" }), {
+            status: 429,
+            headers: { "retry-after": "0" }
+          });
+        }
+
+        return new Response(
+          JSON.stringify({
+            data: [],
+            pagination: { next_cursor: null, has_more: false }
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      },
+      sleep: async (ms) => {
+        sleeps.push(ms);
+      },
+      maxRateLimitRetries: 3
+    });
+
+    expect(result.pageCount).toBe(1);
+    expect(requests).toBe(3);
+    expect(sleeps).toEqual([1000, 2000]);
   });
 
   it.each([
