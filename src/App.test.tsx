@@ -51,7 +51,7 @@ describe("App", () => {
   });
 
   it("runs a fixture export and reports the archive summary", async () => {
-    render(<AppContent session={makeSession()} />);
+    render(<AppContent session={makeSession()} initialExportSource="one-page" />);
 
     await userEvent.click(screen.getByRole("button", { name: /create archive/i }));
 
@@ -63,8 +63,9 @@ describe("App", () => {
   });
 
   it("uses distinct empty export copy", async () => {
-    render(<AppContent session={makeSession()} />);
+    render(<AppContent session={makeSession()} initialExportSource="one-page" />);
 
+    await userEvent.click(screen.getByText("Developer test controls"));
     await userEvent.selectOptions(screen.getByLabelText(/export source/i), "empty");
     await userEvent.click(screen.getByRole("button", { name: /create archive/i }));
 
@@ -73,8 +74,9 @@ describe("App", () => {
   });
 
   it("shows a plain failure state", async () => {
-    render(<AppContent session={makeSession()} />);
+    render(<AppContent session={makeSession()} initialExportSource="one-page" />);
 
+    await userEvent.click(screen.getByText("Developer test controls"));
     await userEvent.selectOptions(screen.getByLabelText(/export source/i), "auth-failure");
     await userEvent.click(screen.getByRole("button", { name: /create archive/i }));
 

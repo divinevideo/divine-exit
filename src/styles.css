@@ -63,11 +63,20 @@ h1 {
   line-height: 1.55;
 }
 
+.dev-tools {
+  margin-bottom: 20px;
+}
+
+.dev-tools summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 220px 140px;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-top: 12px;
 }
 
 label {

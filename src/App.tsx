@@ -39,10 +39,11 @@ function downloadArchive(files: ArchiveFiles): void {
 
 interface AppProps {
   session: DivineSession;
+  initialExportSource?: ExportSource;
 }
 
-export function AppContent({ session }: AppProps) {
-  const [exportSource, setExportSource] = useState<ExportSource>("one-page");
+export function AppContent({ session, initialExportSource = "live" }: AppProps) {
+  const [exportSource, setExportSource] = useState<ExportSource>(initialExportSource);
   const [pageLimit, setPageLimit] = useState(500);
   const [state, setState] = useState<RunState>("idle");
   const [progress, setProgress] = useState<ExportProgress>({ pagesFetched: 0, eventsFetched: 0, retryCount: 0 });
@@ -135,29 +136,32 @@ export function AppContent({ session }: AppProps) {
         )}
 
         {isDevFixturesEnabled && (
-          <div className="form-grid">
-            <label>
-              <span>Export source</span>
-              <select value={exportSource} onChange={(event) => setExportSource(event.target.value as ExportSource)}>
-                <option value="live">Live endpoint</option>
-                {fixtureSourceOptions.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Page limit</span>
-              <input
-                type="number"
-                min={1}
-                max={500}
-                value={pageLimit}
-                onChange={(event) => setPageLimit(Math.min(500, Math.max(1, Number(event.target.value) || 1)))}
-              />
-            </label>
-          </div>
+          <details className="dev-tools">
+            <summary>Developer test controls</summary>
+            <div className="form-grid">
+              <label>
+                <span>Export source</span>
+                <select value={exportSource} onChange={(event) => setExportSource(event.target.value as ExportSource)}>
+                  <option value="live">Live endpoint</option>
+                  {fixtureSourceOptions.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Page limit</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={pageLimit}
+                  onChange={(event) => setPageLimit(Math.min(500, Math.max(1, Number(event.target.value) || 1)))}
+                />
+              </label>
+            </div>
+          </details>
         )}
 
         <div className="actions">
